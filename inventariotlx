@@ -1,0 +1,7 @@
+[srv2]
+srv2ubuntu ansible_user=sysadmin
+srv2ubuntu ansible_host=192.168.56.108
+
+[srv1]
+srv1centos ansible_user=sysadmin
+srv1centos ansible_host=192.168.56.109
