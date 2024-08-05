@@ -1,0 +1,152 @@
+---
+#Instalcion de servidor srv2centos
+- name: Install Java JDK, Tomcat, and ToDo application on CentOS
+  hosts: srv2
+  user: Sysadmin
+  become: yes
+
+  tasks:
+
+    - name: Añadir repositorio para OpenJDK
+      ansible.builtin.yum_repository:
+        name: adoptium
+        description: AdoptOpenJDK OpenJDK Builds
+        baseurl: https://packages.adoptium.net/artifactory/rpm/centos/$releasever/$basearch/
+        gpgkey: https://packages.adoptium.net/artifactory/api/gpg/key/public
+        gpgcheck: yes
+        enabled: yes
+
+    - name: Actualizar cache de yum
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+
+    - name: Instalar la última versión de OpenJDK 17
+      ansible.builtin.yum:
+        name: temurin-17-jdk
+        state: present
+
+    - name: Verificar la instalación de Java
+      ansible.builtin.command: java -version
+      register: java_version_output
+
+    - name: Mostrar la versión de Java instalada
+      ansible.builtin.debug:
+        msg: "{{ java_version_output.stdout }}"    
+
+    #Cramos usuarios y grupos para la aplicacion en Tomcat       
+    - name: Crea usuarios Tomcat
+      ansible.builtin.user:
+        name: tomcat
+        group: tomcat
+        create_home: yes
+
+    #Descargamos la imagen desde eñ repositorio de Tomcat para la instalacion       
+    - name: Descarga Tomcat
+      ansible.builtin.get_url:
+        url: https://downloads.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
+        dest: /opt/apache-tomcat-9.0.91.tar.gz
+
+    #Realizamos los link imbolicos necesarios para Tomcat
+    - name: Crea link simbolico a Tomcat
+      ansible.builtin.file:
+        src: /opt/apache-tomcat-9.0.91
+        dest: /opt/tomcat
+        state: link
+
+    #Cambio de propietario y de grupo del directorio /opt/tomcat de manera recursiva para Tomcat
+    - name: Cambia ownership directorio de Tomcat
+      ansible.builtin.file:
+        path: /opt/tomcat
+        state: directory
+        owner: tomcat
+        group: tomcat
+        recurse: yes
+
+    #Otorgamos permisos en el dicectorio para los sripts ejecutbles
+    - name: Make Tomcat scripts executable
+      ansible.builtin.file:
+        path: /opt/tomcat/bin
+        state: directory
+        mode: '0755'
+        recurse: yes
+
+    #Creamos configuracion de sentencias sql para el arbol de directorio
+    - name: Crea el archivo servicios systemd para Tomcat
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/tomcat.service
+        content: |
+          [Unit]
+          Description=Apache Tomcat Web Application Container
+          After=network.target
+
+          [Service]
+          Type=forking
+
+          User=tomcat
+          Group=tomcat
+
+          Environment="JAVA_HOME=/usr/lib/jvm/jre"
+          Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+          Environment="CATALINA_HOME=/opt/tomcat"
+          Environment="CATALINA_BASE=/opt/tomcat"
+          Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+          Environment="JAVA_OPTS=-Djava.awt.headless=yes -Djava.security.egd=file:/dev/./urandom"
+
+          ExecStart=/opt/tomcat/bin/startup.sh
+          ExecStop=/opt/tomcat/bin/shutdown.sh
+
+          RestartSec=10
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      
+     #Recargamos del daemon systemd para que recargue su configuracion sin reiniciar el sistema en el caso de archivos modificados
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    #Ejecutamos y habilitamos el servicio de Tomcat
+    - name: Enable and start Tomcat service
+      ansible.builtin.systemd:
+        name: tomcat
+        enabled: yes
+        state: started
+
+    #Abrimos los puertos de ejecucion para el Tomcat
+    - name: Open Tomcat ports in firewalld
+      ansible.posix.firewalld:
+        protocol: https
+        permanent: yes
+        state: enabled
+
+    #Hacemos la copia de la aplicacion al directorio del servidor ubuntu
+    - name: Deploy ToDo application WAR file
+      ansible.builtin.copy:
+        src: /home/sysadmin/todo.war
+        dest: /opt/tomcat/webapps/todo.war
+        owner: tomcat
+        group: tomcat
+        mode: '0644'
+
+    #Creamos la configuracion de directorio /ot/config
+    - name: Create configuration directory
+      ansible.builtin.file:
+        path: /opt/config
+        state: directory
+        owner: tomcat
+        group: tomcat
+
+    #Configuracion de database sql
+    - name: Configure database connection
+      ansible.builtin.copy:
+        dest: /opt/config/app.properties
+        content: |
+          tipoDB=mysql
+          jdbcURL=jdbc:mysql://srv1ubuntu.example.com:3306/todo
+          jdbcUsername=todo
+          jdbcPassword=prueba2024
+        owner: tomcat
+        group: tomcat
+        mode: '0644'       
