@@ -1,0 +1,36 @@
+---
+- name: Install Tomcat for ToDo application on CentOS
+  hosts: srv2centos
+  become: yes
+
+  vars:
+    tomcat_url: "https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.58/bin/apache-tomcat-9.0.58.tar.gz"
+
+  tasks:
+    - name: Install tar
+      ansible.builtin.dnf:
+        name: tar
+        state: present
+
+    - name: Download Tomcat package
+      ansible.builtin.get_url:
+        url: "{{ tomcat_url }}"
+        dest: /opt/apache-tomcat.tar.gz
+
+    - name: Extract Tomcat package
+      ansible.builtin.unarchive:
+        src: /opt/apache-tomcat.tar.gz
+        dest: /opt
+        remote_src: yes
+
+    - name: Set Tomcat directory variable
+      ansible.builtin.set_fact:
+        dir_tomcat: "/opt/{{ tomcat_url.split('/')[-1].replace('.tar.gz', '') }}"
+
+    - name: Create symlink to Tomcat
+      ansible.builtin.file:
+        src: "{{ dir_tomcat }}"
+        dest: /opt/tomcat
+        state: link
+        force: yes
+

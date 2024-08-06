@@ -1,0 +1,34 @@
+---
+- name: Instalo servidor tomcat
+  hosts: srv2centos
+  user: sysadmin
+  become: true
+
+  tasks:
+
+  - name: Instalar tar
+    ansible.builtin.dnf:
+      name: tar
+      state: present
+
+  - name: Descargo el paquete tomcat
+    ansible.builtin.uri: 
+      url: "{{ tomcat_url }}"
+      dest: /opt/
+    register: tomcat_file
+
+  - name: Descomprimo el archivo de tomcat
+    ansible.builtin.unarchive:
+      src: "{{ tomcat_file.path }}"
+      dest: /opt
+      remote_src: true 
+
+  - name: Seteo variable con ruta donde está el tomcat
+    ansible.builtin.set_fact:
+      dir_tomcat: "{{ tomcat_file.path | splitext | first | splitext | first }}" 
+  - name: Creo enlace a tomcat
+    ansible.builtin.file:
+      src: "{{ dir_tomcat }}"
+      dest: /opt/tomcat
+      state: link
+      force: true

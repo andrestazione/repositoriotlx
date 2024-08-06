@@ -1,0 +1,55 @@
+---
+- name: Instalar y configurar un webserver
+  hosts: srv2centos
+  become: yes
+
+  tasks:
+    - name: Instalar apache
+      ansible.builtin.dnf:
+        name: httpd
+        state: present
+
+    - name: Configurar virtualhost
+      ansible.builtin.copy:
+        src: ./files/virtualhost.conf
+        dest: /etc/httpd/conf.d/virtualhost.conf
+      notify: Reiniciar apache
+
+    - name: Crear directorio document root
+      ansible.builtin.file:
+        path: /var/www/ejemplo/html
+        state: directory
+        mode: '0755'
+        owner: apache
+        group: apache
+
+    - name: Copiar pagina indice del sitio
+      ansible.builtin.template:
+        src: ./templates/index.j2
+        dest: /var/www/ejemplo/html/index.html
+        owner: apache
+        group: apache
+        mode: '0644'
+
+    - name: Permitir conexiones HTTP y HTTPS
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        state: enabled
+        immediate: yes
+        permanent: yes
+      loop:
+        - http
+        - https
+
+    - name: Apache levantado y habilitado
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reiniciar apache
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+

@@ -1,0 +1,125 @@
+- name: Install Java JDK, Tomcat, and ToDo application on CentOS
+  hosts: srv2centos
+  user: Sysadmin
+  become: true
+  
+  tasks:
+   
+	- name: Instalar Java
+      ansible.builtin.yum:
+        name: java-1.8.0-openjdk
+        state: present
+
+    - name: Crea usuarios Tomcat
+      ansible.builtin.user:
+        name: tomcat
+        group: tomcat
+        create_home: true
+
+    - name: Descarga Tomcat
+      ansible.builtin.get_url:
+        url: https://downloads.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
+        dest: /opt/apache-tomcat-9.0.91.tar.gz
+
+    - name: Extrae el comprimido de Tomcat
+      ansible.builtin.unarchive:
+        src: /opt/apache-tomcat-9.0.91.tar.gz
+        dest: /opt/
+        remote_src: true
+
+    - name: Crea link simbolico a Tomcat
+      ansible.builtin.file:
+        src: /opt/apache-tomcat-9.0.91
+        dest: /opt/tomcat
+        state: link
+
+    - name: Cambia ownership directorio de Tomcat
+      ansible.builtin.file:
+        path: /opt/tomcat
+        state: directory
+        owner: tomcat
+        group: tomcat
+        recurse: true
+
+    - name: Make Tomcat scripts executable
+      ansible.builtin.file:
+        path: /opt/tomcat/bin
+        state: directory
+        mode: '0755'
+        recurse: true
+
+    - name: Crea el archivo servicios systemd para Tomcat
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/tomcat.service
+        content: |
+          [Unit]
+          Description=Apache Tomcat Web Application Container
+          After=network.target
+
+          [Service]
+          Type=forking
+
+          User=tomcat
+          Group=tomcat
+
+          Environment="JAVA_HOME=/usr/lib/jvm/jre"
+          Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+          Environment="CATALINA_HOME=/opt/tomcat"
+          Environment="CATALINA_BASE=/opt/tomcat"
+          Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+          Environment="JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+
+          ExecStart=/opt/tomcat/bin/startup.sh
+          ExecStop=/opt/tomcat/bin/shutdown.sh
+
+          RestartSec=10
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Tomcat service
+      systemd:
+        name: tomcat
+        enabled: yes
+        state: started
+
+    - name: Open Tomcat ports in firewall
+      firewalld:
+        port:
+          - 8080/tcp
+          - 8443/tcp
+        permanent: yes
+        immediate: yes
+        state: enabled
+
+    - name: Deploy ToDo application WAR file
+      copy:
+        src: /path/to/todo.war
+        dest: /opt/tomcat/webapps/todo.war
+        owner: tomcat
+        group: tomcat
+        mode: '0644'
+		
+	- name: Create configuration directory
+      file:
+        path: /opt/config
+        state: directory
+        owner: tomcat
+        group: tomcat
+
+    - name: Configure database connection
+      copy:
+        dest: /opt/config/app.properties
+        content: |
+          tipoDB=mysql
+          jdbcURL=jdbc:mysql://srv1ubuntu.example.com:3306/todo
+          jdbcUsername=todo
+          jdbcPassword=prueba2024
+        owner: tomcat
+        group: tomcat
+        mode: '0644'

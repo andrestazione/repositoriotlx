@@ -1,0 +1,14 @@
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/ejemplo/html
+
+    <Directory /var/www/ejemplo/html>
+        Options Indexes FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    ErrorLog /var/log/httpd/ejemplo-error.log
+    CustomLog /var/log/httpd/ejemplo-access.log combined
+</VirtualHost>
+

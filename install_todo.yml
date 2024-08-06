@@ -37,142 +37,142 @@
 
 
     #Cramos usuarios y grupos para la aplicacion en Tomcat       
-    - name: Crea usuarios Tomcat
-      ansible.builtin.user:
-        name: tomcat
-        group: tomcat
-        create_home: yes
+  - name: Crea usuarios Tomcat
+    ansible.builtin.user:
+      name: tomcat
+      group: tomcat
+      create_home: yes
 
     #Descargamos la imagen desde eñ repositorio de Tomcat para la instalacion       
-    - name: Descarga Tomcat
-      ansible.builtin.uri:
-        url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
-        dest: /opt/
+  - name: Descarga Tomcat
+    ansible.builtin.uri:
+      url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
+      dest: /opt/
 
-    - name: Instalar tar
-      andsible.builtin.dnf:
-        url: "{{ tomcat_url }}"
-        dest: /opt
-      register: tomcat_file
+  - name: Instalar tar
+    andsible.builtin.dnf:
+      url: "{{ tomcat_url }}"
+      dest: /opt
+    register: tomcat_file
     
-    - name: Descomprimo el archivo de tomcat
-      ansible.builtin.unarchive:
-        src: "{{ tomcat_file.path }}"
-        dest: /opt
-        remote_src: yes
-      register: tomcat_descomprimido
+  - name: Descomprimo el archivo de tomcat
+    ansible.builtin.unarchive:
+      src: "{{ tomcat_file.path }}"
+      dest: /opt
+      remote_src: yes
+    register: tomcat_descomprimido
  
-    - name: Debug tomcat descomprimido
-      ansible.builtin.debug:
-        dir_tomcat: "{{ tomcat_file.path | splitext | first | splitext | first }}"
+  - name: Debug tomcat descomprimido
+    ansible.builtin.debug:
+      dir_tomcat: "{{ tomcat_file.path | splitext | first | splitext | first }}"
      
-    - name: Creo enlace a tomcat
-      ansible.builtin.file:
-        src: "{{ dir_tomcat }}"
-        dest: /opt/tomcat
-        force: true
+  - name: Creo enlace a tomcat
+    ansible.builtin.file:
+      src: "{{ dir_tomcat }}"
+      dest: /opt/tomcat
+      force: true
 
-    #Realizamos los link imbolicos necesarios para Tomcat
-    # - name: Crea link simbolico a Tomcat
-    #  ansible.builtin.file:
-    #    src: /opt/apache-tomcat-9.0.91
-    #    dest: /opt/tomcat
-    #    state: link
+  #Realizamos los link imbolicos necesarios para Tomcat
+  # - name: Crea link simbolico a Tomcat
+  #  ansible.builtin.file:
+  #    src: /opt/apache-tomcat-9.0.91
+  #    dest: /opt/tomcat
+  #    state: link
 
-    #Cambio de propietario y de grupo del directorio /opt/tomcat de manera recursiva para Tomcat
-    - name: Cambia ownership directorio de Tomcat
-      ansible.builtin.file:
-        path: /opt/tomcat
-        state: directory
-        owner: tomcat
-        group: tomcat
-        recurse: yes
+  #Cambio de propietario y de grupo del directorio /opt/tomcat de manera recursiva para Tomcat
+  - name: Cambia ownership directorio de Tomcat
+    ansible.builtin.file:
+      path: /opt/tomcat
+      state: directory
+      owner: tomcat
+      group: tomcat
+      recurse: yes
 
-    #Otorgamos permisos en el dicectorio para los sripts ejecutbles
-    - name: Make Tomcat scripts executable
-      ansible.builtin.file:
-        path: /opt/tomcat/bin
-        state: directory
-        mode: '0755'
-        recurse: yes
+  #Otorgamos permisos en el dicectorio para los sripts ejecutbles
+  - name: Make Tomcat scripts executable
+    ansible.builtin.file:
+      path: /opt/tomcat/bin
+      state: directory
+      mode: '0755'
+      recurse: yes
 
-    #Creamos configuracion de sentencias sql para el arbol de directorio
-    - name: Crea el archivo servicios systemd para Tomcat
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/tomcat.service
-        content: |
-          [Unit]
-          Description=Apache Tomcat Web Application Container
-          After=network.target
+  #Creamos configuracion de sentencias sql para el arbol de directorio
+  - name: Crea el archivo servicios systemd para Tomcat
+    ansible.builtin.copy:
+      dest: /etc/systemd/system/tomcat.service
+      content: |
+        [Unit]
+        Description=Apache Tomcat Web Application Container
+        After=network.target
 
-          [Service]
-          Type=forking
+        [Service]
+        Type=forking
 
-          User=tomcat
-          Group=tomcat
+        User=tomcat
+        Group=tomcat
 
-          Environment="JAVA_HOME=/usr/lib/jvm/jre"
-          Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
-          Environment="CATALINA_HOME=/opt/tomcat"
-          Environment="CATALINA_BASE=/opt/tomcat"
-          Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
-          Environment="JAVA_OPTS=-Djava.awt.headless=yes -Djava.security.egd=file:/dev/./urandom"
+        Environment="JAVA_HOME=/usr/lib/jvm/jre"
+        Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+        Environment="CATALINA_HOME=/opt/tomcat"
+        Environment="CATALINA_BASE=/opt/tomcat"
+        Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+        Environment="JAVA_OPTS=-Djava.awt.headless=yes -Djava.security.egd=file:/dev/./urandom"
 
-          ExecStart=/opt/tomcat/bin/startup.sh
-          ExecStop=/opt/tomcat/bin/shutdown.sh
+        ExecStart=/opt/tomcat/bin/startup.sh
+        ExecStop=/opt/tomcat/bin/shutdown.sh
 
-          RestartSec=10
-          Restart=always
+        RestartSec=10
+        Restart=always
 
-          [Install]
-          WantedBy=multi-user.target
+        [Install]
+        WantedBy=multi-user.target
       
-     #Recargamos del daemon systemd para que recargue su configuracion sin reiniciar el sistema en el caso de archivos modificados
-    - name: Reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: yes
+  #Recargamos del daemon systemd para que recargue su configuracion sin reiniciar el sistema en el caso de archivos modificados
+  - name: Reload systemd
+    ansible.builtin.systemd:
+      daemon_reload: yes
 
-    #Ejecutamos y habilitamos el servicio de Tomcat
-    - name: Enable and start Tomcat service
-      ansible.builtin.systemd:
-        name: tomcat
-        enabled: yes
-        state: started
+  #Ejecutamos y habilitamos el servicio de Tomcat
+  - name: Enable and start Tomcat service
+    ansible.builtin.systemd:
+      name: tomcat
+      enabled: yes
+      state: started
 
-    #Abrimos los puertos de ejecucion para el Tomcat
-    - name: Open Tomcat ports in firewalld
-      ansible.posix.firewalld:
-        port: 8080/tcp
-        permanent: yes
-        inmediate: yes
-        state: enabled
+  #Abrimos los puertos de ejecucion para el Tomcat
+  - name: Open Tomcat ports in firewalld
+    ansible.posix.firewalld:
+      port: 8080/tcp
+      permanent: yes
+      inmediate: yes
+      state: enabled
 
-    #Hacemos la copia de la aplicacion al directorio del servidor ubuntu
-    - name: Deploy ToDo application WAR file
-      ansible.builtin.copy:
-        src: /home/sysadmin/todo.war
-        dest: /opt/tomcat/webapps/todo.war
-        owner: tomcat
-        group: tomcat
-        mode: '0644'
+  #Hacemos la copia de la aplicacion al directorio del servidor ubuntu
+  - name: Deploy ToDo application WAR file
+    ansible.builtin.copy:
+      src: /home/sysadmin/todo.war
+      dest: /opt/tomcat/webapps/todo.war
+      owner: tomcat
+      group: tomcat
+      mode: '0644'
 
-    #Creamos la configuracion de directorio /ot/config
-    - name: Create configuration directory
-      ansible.builtin.file:
-        path: /opt/config
-        state: directory
-        owner: tomcat
-        group: tomcat
+  #Creamos la configuracion de directorio /ot/config
+  - name: Create configuration directory
+    ansible.builtin.file:
+      path: /opt/config
+      state: directory
+      owner: tomcat
+      group: tomcat
 
-    #Configuracion de database sql
-    - name: Configure database connection
-      ansible.builtin.copy:
-        dest: /opt/config/app.properties
-        content: |
-          tipoDB=mysql
-          jdbcURL=jdbc:mysql://srv1ubuntu.example.com:3306/todo
-          jdbcUsername=todo
-          jdbcPassword=prueba2024
-        owner: tomcat
-        group: tomcat
-        mode: '0644'       
+  #Configuracion de database sql
+  - name: Configure database connection
+    ansible.builtin.copy:
+      dest: /opt/config/app.properties
+      content: |
+        tipoDB=mysql
+        jdbcURL=jdbc:mysql://srv1ubuntu.example.com:3306/todo
+        jdbcUsername=todo
+        jdbcPassword=prueba2024
+      owner: tomcat
+      group: tomcat
+      mode: '0644'       
