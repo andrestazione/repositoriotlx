@@ -37,7 +37,7 @@
 ## Instalación de base de datos
   - name: MariaDB instalado
     ansible.builtin.apt:
-      name: mariadb-server
+      name: "{{ item }}"
       state: present
       update-cache: true
     loop:
@@ -72,7 +72,7 @@
 
   - name: Copio el dump de la base de datos
     ansible.builtin.copy:
-      src: ./files/todo.sql
+      src: todo.sql
       dest: /tmp/todo.sql
 
   - name: Creo la base de datos todo
