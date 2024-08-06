@@ -1,7 +1,7 @@
 ---
 - name: Configuro servidor base de datos en ubuntu
   hosts: srv1ubuntu
-  become: true
+  become: yes
   user: sysadmin
 
   tasks:
@@ -23,7 +23,7 @@
 
     - name: Defino políticas de tráfico entrante
       community.general.ufw:
-        policy: deny
+        policy: allow
         direction: incoming
         state: enabled
 
@@ -31,14 +31,18 @@
       ansible.builtin.systemd:
         name: ufw
         state: started
-        enabled: true
+        enabled: yes
 
     ## Instalación de base de datos
     - name: MariaDB instalado
       ansible.builtin.apt:
         name: mariadb-server
         state: present
-        update_cache: true
+        update_cache: yes
+      loop:
+        - mariadb-server
+        - mariadb-client
+        - python3-pymysql     
 
     - name: Cambiar la configuración para escuchar en todas las interfaces
       ansible.builtin.lineinfile:
@@ -47,11 +51,14 @@
         line: 'bind-address         = 0.0.0.0'
       notify: Restart mariadb
 
+    - name: Ejecuto el handler si cambio la configuracion
+      meta: flush_handlers
+
     - name: Servidor MariaDB levantado
-      ansible.builtin.systemd: 
+      ansible.builtin.systemd_service: 
         name: mariadb
         state: started
-        enabled: true
+        enabled: yes
 
     - name: Habilitamos en ufw la conexión a MariaDB
       community.general.ufw:
@@ -60,20 +67,28 @@
         protocol: tcp
         direction: in
 
-    ## Configuración de la base de datos
+    ## Configuración de la base de datos de la aplicacion
+    
+    - name: Copio el dump de la base de datos
+      ansible.builtin.copy:
+        src: ./file/todo.sql
+        dest: /tmp/todo.sql
+
     - name: Creo la base de datos todo
       community.mysql.mysql_db:
-        check_implicit_admin: true
-        login_host: "{{ hostvars[inventory_hostname].ansible_host }}"
-        login_user: prueba
-        login_password: prueba2024
+        # check_implicit_admin: yes
+        # login_host: "{{ hostvars[inventory_hostname].ansible_host }}"
+        login_unix_socket: /run/mysqld/mysql.sock
+        # login_user: root
+        # login_password: dbadmin
         name: todo
         state: import
-        target: ./files/todo.sql
-      delegate_to: localhost
-      connection: local
+        target: /tmp/todo.sql
+        # delegate_to: localhost
+        # connection: local
 
   handlers:
+    
     - name: Restart mariadb
       ansible.builtin.systemd: 
         name: mariadb

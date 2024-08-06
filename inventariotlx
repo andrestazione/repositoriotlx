@@ -1,7 +1,34 @@
-[srv2]
+[srv2ubuntu]
 srv2ubuntu ansible_user=sysadmin
 srv2ubuntu ansible_host=192.168.56.108
 
-[srv1]
+[srv1centos]
 srv1centos ansible_user=sysadmin
 srv1centos ansible_host=192.168.56.109
+
+#all:
+#  hosts:
+#    srv1ce#all:
+#  hosts:
+#    srv1centos:
+#      ansible_user: sysadmin
+
+#  children:
+#    webservers:
+#      hosts:
+#        srv1centos:ntos:
+#      ansible_user: sysadmin
+  
+
+
+	 
+#all:
+#  hosts:
+#    srv1centos:
+#      ansible_user: sysadmin
+#      ansible_ssh_private_key_file: /home/sysadmin/.ssh
+#  children:
+#    webservers:
+#      hosts:
+#        srv2centos:
+#          ansible_ssh_port: 22

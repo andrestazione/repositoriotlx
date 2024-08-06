@@ -1,38 +1,40 @@
 ---
 #Instalcion de servidor srv2centos
 - name: Install Java JDK, Tomcat, and ToDo application on CentOS
-  hosts: srv2
-  user: Sysadmin
+  hosts: srv2centos
+  user: sysadmin
   become: yes
 
   tasks:
 
-    - name: Añadir repositorio para OpenJDK
-      ansible.builtin.yum_repository:
-        name: adoptium
-        description: AdoptOpenJDK OpenJDK Builds
-        baseurl: https://packages.adoptium.net/artifactory/rpm/centos/$releasever/$basearch/
-        gpgkey: https://packages.adoptium.net/artifactory/api/gpg/key/public
-        gpgcheck: yes
-        enabled: yes
+    #- name: Añadir repositorio para OpenJDK
+    #  ansible.builtin.yum_repository:
+    #    name: adoptium
+    #    description: AdoptOpenJDK OpenJDK Builds
+    #    baseurl: https://adoptium.net/releases.html
+    #    gpgkey: https://packages.adoptium.net/artifactory/api/gpg/key/public
+    #    gpgcheck: yes
+    #    enabled: yes
 
-    - name: Actualizar cache de yum
-      ansible.builtin.yum:
-        name: "*"
-        state: latest
 
-    - name: Instalar la última versión de OpenJDK 17
-      ansible.builtin.yum:
-        name: temurin-17-jdk
-        state: present
+  - name: Instalar la última versión de OpenJDK 17
+    ansible.builtin.yum:
+      name: java-11-openjdk
+      state: present
 
-    - name: Verificar la instalación de Java
-      ansible.builtin.command: java -version
-      register: java_version_output
+    #- name: Verificar la instalación de Java
+    #  ansible.builtin.command: java -version
+    #  register: java_version_output
 
-    - name: Mostrar la versión de Java instalada
-      ansible.builtin.debug:
-        msg: "{{ java_version_output.stdout }}"    
+    #- name: Mostrar la versión de Java instalada
+    #  ansible.builtin.debug:
+    #    msg: "{{ java_version_output.stdout }}"    
+
+    #- name: Install Java
+    #  ansible.builtin.yum:
+    #    name: java-1.8.0-openjdk
+    #    state: present
+
 
     #Cramos usuarios y grupos para la aplicacion en Tomcat       
     - name: Crea usuarios Tomcat
@@ -43,16 +45,39 @@
 
     #Descargamos la imagen desde eñ repositorio de Tomcat para la instalacion       
     - name: Descarga Tomcat
-      ansible.builtin.get_url:
-        url: https://downloads.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
-        dest: /opt/apache-tomcat-9.0.91.tar.gz
+      ansible.builtin.uri:
+        url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz
+        dest: /opt/
+
+    - name: Instalar tar
+      andsible.builtin.dnf:
+        url: "{{ tomcat_url }}"
+        dest: /opt
+      register: tomcat_file
+    
+    - name: Descomprimo el archivo de tomcat
+      ansible.builtin.unarchive:
+        src: "{{ tomcat_file.path }}"
+        dest: /opt
+        remote_src: yes
+      register: tomcat_descomprimido
+ 
+    - name: Debug tomcat descomprimido
+      ansible.builtin.debug:
+        dir_tomcat: "{{ tomcat_file.path | splitext | first | splitext | first }}"
+     
+    - name: Creo enlace a tomcat
+      ansible.builtin.file:
+        src: "{{ dir_tomcat }}"
+        dest: /opt/tomcat
+        force: true
 
     #Realizamos los link imbolicos necesarios para Tomcat
-    - name: Crea link simbolico a Tomcat
-      ansible.builtin.file:
-        src: /opt/apache-tomcat-9.0.91
-        dest: /opt/tomcat
-        state: link
+    # - name: Crea link simbolico a Tomcat
+    #  ansible.builtin.file:
+    #    src: /opt/apache-tomcat-9.0.91
+    #    dest: /opt/tomcat
+    #    state: link
 
     #Cambio de propietario y de grupo del directorio /opt/tomcat de manera recursiva para Tomcat
     - name: Cambia ownership directorio de Tomcat
@@ -117,8 +142,9 @@
     #Abrimos los puertos de ejecucion para el Tomcat
     - name: Open Tomcat ports in firewalld
       ansible.posix.firewalld:
-        protocol: https
+        port: 8080/tcp
         permanent: yes
+        inmediate: yes
         state: enabled
 
     #Hacemos la copia de la aplicacion al directorio del servidor ubuntu
